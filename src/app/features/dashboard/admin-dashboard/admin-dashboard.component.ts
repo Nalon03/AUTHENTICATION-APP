@@ -1,8 +1,15 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { User, ApiResponse, UserRole } from '@app/interface/user.interface'; 
+import {
+  User,
+  ApiResponse,
+  UserRole,
+  Roles,
+} from '@app/interface/user.interface';
 import { UserService } from '@app/services/userService';
+import { AuthService } from '@app/services/authService';
+
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -14,125 +21,162 @@ import { UserService } from '@app/services/userService';
 export class AdminDashboardComponent {
   users: User[] = [];
   selectedUser: User | null = null;
-  availableRoles: UserRole[] = ['admin', 'user'];
+  availableRoles: UserRole[] = [];
+  isEditingProfile = false;
 
   currentUser: User = {
     id: '',
     firstName: '',
     lastName: '',
     email: '',
-    roles: []
-  }; 
-  isEditingProfile = false;
+    roles: [],
+  };
 
-  constructor(private userService: UserService) {
+  constructor(private userService: UserService, private authService: AuthService) {
     this.loadUsers();
+    this.loadRoles();
     this.loadCurrentUser();
   }
 
-  loadUsers() {
+  loadUsers(): void {
     this.userService.getUsers().subscribe({
       next: (response: ApiResponse<User[]>) => {
         if (response.success) {
           this.users = response.data;
         }
       },
-      error: (error) => {
-      },
+      error: (error) => console.error('Failed to load users:', error),
     });
   }
 
-  loadCurrentUser() {
+  loadRoles(): void {
+    this.userService.getRoles().subscribe({
+      next: (response: ApiResponse<Roles[]>) => {
+        if (response.success) {
+          this.availableRoles = response.data.map((role, index) => ({
+            id: index + 1, 
+            name: role,
+          }));
+        }
+      },
+      error: (error) => console.error('Failed to load roles:', error),
+    });
+  }
+  
+
+  loadCurrentUser(): void {
     this.userService.getProfile().subscribe({
       next: (response: ApiResponse<User>) => {
         if (response.success) {
           this.currentUser = response.data;
         }
       },
-      error: (error) => {
-      },
+      error: (error) => console.error('Failed to load current user:', error),
     });
   }
 
-  getRoleNames(roles: any[]): string {
-    return roles.map(role => role.name).join(', ');
+  getRoleNames(roles: UserRole[]): string {
+    return roles.map((role) => role.name).join(', ');
   }
 
-  editUserRoles(user: User) {
-    this.selectedUser = { ...user }; 
+  editUserRoles(user: User): void {
+    this.selectedUser = { ...user };
   }
 
-  hasRole(roleName: UserRole): boolean {
-    if (!this.selectedUser || !this.selectedUser.roles) return false;
-    return this.selectedUser.roles.includes(roleName);
+  hasRole(roleName: Roles): boolean {
+    return (
+      this.selectedUser?.roles.some((role) => role.name === roleName) ?? false
+    );
   }
 
-  toggleRole(roleName: UserRole) {
+  toggleRole(roleName: Roles): void {
     if (!this.selectedUser) return;
-    this.selectedUser.roles = this.selectedUser.roles || [];
-    
+
     const roleExists = this.hasRole(roleName);
-    
+
     if (roleExists) {
-      this.selectedUser.roles = this.selectedUser.roles.filter(role => role !== roleName);
+      this.selectedUser.roles = this.selectedUser.roles.filter(
+        (role) => role.name !== roleName
+      );
     } else {
-      this.selectedUser.roles.push(roleName);
+      const role = this.availableRoles.find((r) => r.name === roleName);
+      if (role) {
+        this.selectedUser.roles.push(role);
+      } else {
+        console.error('Role not found:', roleName);
+      }
     }
   }
 
-  saveUserRoles() {
+  saveUserRoles(): void {
     if (this.selectedUser) {
-      const selectedRoles = this.selectedUser.roles;
-
-      this.userService.updateUserRoles(this.selectedUser.id, selectedRoles).subscribe({
-          next: (response: ApiResponse<User>) => {
-              if (response.success) {
-                  const index = this.users.findIndex(u => u.id === this.selectedUser!.id);
-                  if (index !== -1) {
-                      this.users[index] = response.data;
-                  }
-                  this.selectedUser = null;
-              }
-          },
-          error: (error) => {
+      const roles: UserRole[] = this.selectedUser.roles
+        .map((role) => {
+          const matchedRole = this.availableRoles.find((r) => r.id === role.id);
+          if (matchedRole) {
+            return { id: role.id, name: matchedRole.name }; 
           }
-      });
-    }
-  }
-
-  removeUser(userId: string) {
-    if (confirm('Are you sure you want to delete this user?')) {
-      this.userService.deleteUser(userId).subscribe({
-        next: (response: ApiResponse<any>) => {
+          return null; 
+        })
+        .filter((role): role is UserRole => role !== null); 
+  
+      this.userService.updateUserRoles(this.selectedUser.id, roles).subscribe({
+        next: (response: ApiResponse<User>) => {
           if (response.success) {
-            this.users = this.users.filter(user => user.id !== userId);
+            const index = this.users.findIndex(
+              (u) => u.id === this.selectedUser!.id
+            );
+            if (index !== -1) {
+              this.users[index] = response.data;
+            }
+            this.selectedUser = null;
           }
         },
-        error: (error) => {
-        }
+        error: (error) => console.error('Failed to save user roles:', error),
+      });
+    }
+  }
+  
+  
+  
+  removeUser(userId: string): void {
+    if (confirm('Are you sure you want to delete this user?')) {
+      this.userService.deleteUser(userId).subscribe({
+        next: (response: ApiResponse<unknown>) => {
+          if (response.success) {
+            this.users = this.users.filter((user) => user.id !== userId);
+          }
+        },
+        error: (error) => console.error('Failed to delete user:', error),
       });
     }
   }
 
-  cancelRoleEdit() {
+  cancelRoleEdit(): void {
     this.selectedUser = null;
   }
 
-  editProfile() {
+  editProfile(): void {
     this.isEditingProfile = true;
   }
 
-  saveProfile() {
-    this.userService.updateProfile(this.currentUser).subscribe(response => {
-      if (response.success) {
-        this.isEditingProfile = false;
-        this.loadCurrentUser();
-      }
-    }, error => {
+  saveProfile(): void {
+    this.userService.updateProfile(this.currentUser).subscribe({
+      next: (response: ApiResponse<User>) => {
+        if (response.success) {
+          this.isEditingProfile = false;
+          this.loadCurrentUser();
+        }
+      },
+      error: (error) => console.error('Failed to save profile:', error),
     });
   }
 
-  cancelProfileEdit() {
+  cancelProfileEdit(): void {
     this.isEditingProfile = false;
+  }
+
+  logout(): void {
+    this.authService.logout();
   }
 }

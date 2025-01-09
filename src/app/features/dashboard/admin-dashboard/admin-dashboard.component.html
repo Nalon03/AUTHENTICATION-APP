@@ -1,6 +1,8 @@
 <div class="container">
   <h1 class="page-title">Admin Dashboard</h1>
-  
+  <div class="logout-button">
+    <button class="btn btn-logout" (click)="logout()">Logout</button>
+  </div>
   <div class="user-profile">
     <h2>Your Profile</h2>
     <div class="profile-info">
@@ -9,6 +11,8 @@
       <button class="btn btn-edit" (click)="editProfile()">Edit Profile</button>
     </div>
   </div>
+  
+  
 
   <div class="user-list">
     <h2>Users</h2>
@@ -18,7 +22,7 @@
           <th>User ID</th>
           <th>Email</th>
           <th>Roles</th>
-          <th>Actions</th>
+          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -27,9 +31,9 @@
           <td>{{ user.email }}</td>
           <td>{{ getRoleNames(user.roles) }}</td>
           <td class="action-buttons">
-            <!-- <button class="btn btn-edit" (click)="editUserRoles(user)">
+            <button class="btn btn-edit" (click)="editUserRoles(user)">
               Edit Roles
-            </button> -->
+            </button>
             <button class="btn btn-remove" (click)="removeUser(user.id)">
               Remove
             </button>
@@ -46,8 +50,8 @@
         <label *ngFor="let role of availableRoles" class="role-checkbox">
           <input 
             type="checkbox" 
-            [checked]="hasRole(role)"
-            (change)="toggleRole(role)"
+            [checked]="hasRole(role.name)"
+            (change)="toggleRole(role.name)"
           >
           {{ role }}
         </label>

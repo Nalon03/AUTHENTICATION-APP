@@ -18,7 +18,7 @@ import { jwtDecode } from 'jwt-decode';
   providedIn: 'root',
 })
 export class AuthService {
-  private baseUrl = 'http://localhost:5000/api';
+  private apiUrl = 'http://localhost:5000/api';
 
   constructor(private http: HttpClient, private router: Router) {
     this.getAccessToken();
@@ -28,14 +28,14 @@ export class AuthService {
     registerInput: RegisterInput
   ): Observable<ApiResponse<RegisterResponse>> {
     return this.http.post<ApiResponse<RegisterResponse>>(
-      `${this.baseUrl}/auth/register`,
+      `${this.apiUrl}/auth/register`,
       registerInput
     );
   }
 
   login(loginInput: LoginInput): Observable<LoginApiResponse> {
     return this.http
-      .post<LoginApiResponse>(`${this.baseUrl}/auth/login`, loginInput)
+      .post<LoginApiResponse>(`${this.apiUrl}/auth/login`, loginInput)
       .pipe(
         switchMap((response) => {
           if (response.success && response.data) {
@@ -50,9 +50,7 @@ export class AuthService {
           }
           return of(response);
         }),
-        catchError((err) => {
-          return throwError(() => err);
-        })
+        catchError((err) => throwError(() => err))
       );
   }
 
@@ -92,23 +90,21 @@ export class AuthService {
 
   private generateAccessToken(id: string, roles: string[]): Observable<string> {
     return this.http
-      .post<string>(`${this.baseUrl}/auth/generate-access-token`, { id, roles })
+      .post<string>(`${this.apiUrl}/auth/generate-access-token`, { id, roles })
       .pipe(
-        catchError((err) => {
-          this.logout();
-          return throwError(() => new Error('Failed to generate access token'));
-        })
+        catchError(() =>
+          throwError(() => new Error('Failed to generate access token'))
+        )
       );
   }
 
   private generateRefreshToken(id: string): Observable<string> {
     return this.http
-      .post<string>(`${this.baseUrl}/auth/generate-refresh-token`, { id })
+      .post<string>(`${this.apiUrl}/auth/generate-refresh-token`, { id })
       .pipe(
-        catchError((err) => {
-          this.logout();
-          return throwError(() => new Error('Failed to generate refresh token'));
-        })
+        catchError(() =>
+          throwError(() => new Error('Failed to generate refresh token'))
+        )
       );
   }
 
@@ -117,13 +113,33 @@ export class AuthService {
     localStorage.setItem('refreshToken', refreshToken);
   }
 
-  getAccessToken(): string | null {
-    return localStorage.getItem('authToken');
+  getAccessToken(): string | undefined {
+    return localStorage.getItem('authToken') || undefined;
   }
+  
 
   getRefreshToken(): string | null {
     return localStorage.getItem('refreshToken');
   }
+
+  isTokenExpired(token?: string): boolean {
+    token = token || this.getAccessToken(); 
+    if (!token) return true;
+  
+    try {
+      const decodedToken = jwtDecode<TokenPayload>(token);
+      const currentTime = Math.floor(Date.now() / 1000);
+  
+      if (decodedToken.exp !== undefined) {
+        return decodedToken.exp < currentTime;
+      }
+  
+      return true;
+    } catch {
+      return true;
+    }
+  }
+  
 
   logout(): void {
     localStorage.removeItem('authToken');
@@ -135,7 +151,6 @@ export class AuthService {
     if (!roles || roles.length === 0) {
       return;
     }
-
     localStorage.setItem('userRoles', JSON.stringify(roles));
   }
 
@@ -144,7 +159,7 @@ export class AuthService {
     return roles ? JSON.parse(roles) : [];
   }
 
-  routeUserBasedOnRole() {
+  routeUserBasedOnRole(): void {
     const roles = this.getUserRoles();
     if (roles && roles.length > 0) {
       if (roles.includes('admin')) {

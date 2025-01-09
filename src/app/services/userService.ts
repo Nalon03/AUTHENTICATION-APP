@@ -1,7 +1,12 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { ApiResponse, User, UserRole } from '@app/interface/user.interface';
+import { HttpClient } from '@angular/common/http';
+import { catchError, Observable, throwError } from 'rxjs';
+import {
+  ApiResponse,
+  Roles,
+  User,
+  UserRole,
+} from '@app/interface/user.interface';
 
 @Injectable({
   providedIn: 'root',
@@ -12,105 +17,47 @@ export class UserService {
   constructor(private http: HttpClient) {}
 
   getUsers(): Observable<ApiResponse<User[]>> {
-    const token = localStorage.getItem('authToken');
-
-    if (!token) {
-      throw new Error('No access token available');
-    }
-
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    });
-
-    return this.http.get<ApiResponse<User[]>>(`${this.apiUrl}/users`, {
-      headers,
-    });
+    return this.http.get<ApiResponse<User[]>>(`${this.apiUrl}/users`);
   }
 
   updateUserRoles(
     userId: string,
     roles: UserRole[]
   ): Observable<ApiResponse<User>> {
-    const token = localStorage.getItem('authToken');
+    const body = {
+      userId,
+      newRoles: roles,
+    };
 
-    if (!token) {
-      throw new Error('No access token available');
-    }
+    return this.http
+      .put<ApiResponse<User>>(`${this.apiUrl}/admin/update/user/role`, body)
+      .pipe(
+        catchError((error) => {
+          return throwError(() => new Error('Failed to update user roles'));
+        })
+      );
+  }
 
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    });
-
-    const body = { userId, newRoles: roles };
-
-    console.log('Updating user roles:', { userId, newRoles: roles });
-
-    return this.http.put<ApiResponse<User>>(
-      `${this.apiUrl}/admin/update/user/role`,
-      body,
-      {
-        headers,
-      }
+  getRoles(): Observable<ApiResponse<Roles[]>> {
+    return this.http.get<ApiResponse<Roles[]>>(
+      `${this.apiUrl}/admin/all/roles`
     );
   }
 
   deleteUser(userId: string): Observable<ApiResponse<any>> {
-    const token = localStorage.getItem('authToken');
-
-    if (!token) {
-      throw new Error('No access token available');
-    }
-
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    });
-
     return this.http.delete<ApiResponse<any>>(
-      `${this.apiUrl}/admin/delete/user/${userId}`,
-      {
-        headers,
-      }
+      `${this.apiUrl}/admin/delete/user/${userId}`
     );
   }
 
   getProfile(): Observable<ApiResponse<User>> {
-    const token = localStorage.getItem('authToken');
-
-    if (!token) {
-      throw new Error('No access token available');
-    }
-
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    });
-
-    return this.http.get<ApiResponse<User>>(`${this.apiUrl}/user/profile`, {
-      headers,
-    });
+    return this.http.get<ApiResponse<User>>(`${this.apiUrl}/user/profile`);
   }
 
   updateProfile(userData: User): Observable<ApiResponse<User>> {
-    const token = localStorage.getItem('authToken');
-
-    if (!token) {
-      throw new Error('No access token available');
-    }
-
-    const headers = new HttpHeaders({
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    });
-
     return this.http.put<ApiResponse<User>>(
       `${this.apiUrl}/user/update/profile`,
-      userData,
-      {
-        headers,
-      }
+      userData
     );
   }
 }

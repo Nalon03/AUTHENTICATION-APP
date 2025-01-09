@@ -1,34 +1,23 @@
-import { Injectable } from '@angular/core';
-import {
-  HttpRequest,
-  HttpHandler,
-  HttpEvent,
-  HttpInterceptor,
-} from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { Router } from '@angular/router';
+import { HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { AuthService } from '@app/services/authService';
 
-@Injectable()
-export class AuthInterceptor implements HttpInterceptor {
-  constructor(private router: Router) {}
+export const authInterceptor: HttpInterceptorFn = (req, next) => {
+  const authService = inject(AuthService);
+  const token = authService.getAccessToken();
 
-  intercept(
-    req: HttpRequest<any>,
-    next: HttpHandler
-  ): Observable<HttpEvent<any>> {
-    const token = localStorage.getItem('authToken');
-
-    if (!token) {
-      this.router.navigate(['/register']);
-      return next.handle(req);
-    }
-
-    const clonedRequest = req.clone({
-      setHeaders: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    return next.handle(clonedRequest);
+  if (token && authService.isTokenExpired(token)) {
+    console.error('Token has expired. Redirecting to login.');
+    authService.logout();
+    // Optionally, redirect to login or handle token refresh
+    return next(req);
   }
-}
+
+  const clonedRequest = req.clone({
+    headers: req.headers
+      .set('Content-Type', 'application/json')
+      .set('Authorization', token ? `Bearer ${token}` : ''),
+  });
+
+  return next(clonedRequest);
+};
