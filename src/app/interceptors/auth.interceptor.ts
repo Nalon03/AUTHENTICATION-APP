@@ -9,7 +9,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   if (token && authService.isTokenExpired(token)) {
     console.error('Token has expired. Redirecting to login.');
     authService.logout();
-    // Optionally, redirect to login or handle token refresh
     return next(req);
   }
 

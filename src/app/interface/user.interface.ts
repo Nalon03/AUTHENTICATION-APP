@@ -1,4 +1,4 @@
-import { JwtPayload } from 'jsonwebtoken';
+import { JwtPayload } from 'jwt-decode';
 
 export type Roles = 'admin' | 'user';
 
